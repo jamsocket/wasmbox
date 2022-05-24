@@ -8,7 +8,7 @@ const EXT_FN_CALLBACK: &str = "callback";
 const EXT_FN_SEND: &str = "send";
 const EXT_FN_MALLOC: &str = "malloc";
 const EXT_FN_FREE: &str = "free";
-
+const EXT_FN_INITIALIZE: &str = "initialize";
 
 #[inline]
 fn get_memory<T>(caller: &mut Caller<'_, T>) -> Memory {
@@ -35,14 +35,14 @@ fn get_u8_vec<'a, T>(
 }
 
 #[inline]
-fn get_string<'a, T>(
+fn get_deserialize<'a, T, R>(
     caller: &'a Caller<'_, T>,
     memory: &'a Memory,
     start: u32,
     len: u32,
-) -> anyhow::Result<&'a str> {
+) -> anyhow::Result<R> where R: DeserializeOwned {
     let data = get_u8_vec(caller, memory, start, len);
-    Ok(std::str::from_utf8(data)?)
+    Ok(bincode::deserialize(data)?)
 }
 
 // TODO: use from wasmbox rather than re-implementing.
@@ -58,7 +58,7 @@ pub trait WasmBox: 'static {
     fn message(&mut self, input: Self::Input);
 }
 
-struct WasmBoxHost {
+pub struct WasmBoxHost {
     store: Store<()>,
     memory: Memory,
     //callback: Box<dyn Fn(String)>,
@@ -88,7 +88,6 @@ impl WasmBoxHost {
 
         self.fn_free
             .call(&mut self.store, (pt, len))?;
-
         Ok(())
     }
 }
@@ -111,10 +110,10 @@ impl WasmBox for WasmBoxHost {
         {
             linker.func_wrap(
                 ENV,
-                EXT_FN_SEND,
+                EXT_FN_CALLBACK,
                 move |mut caller: Caller<'_, ()>, start: u32, len: u32| {
                     let memory = get_memory(&mut caller);
-                    let message = get_string(&caller, &memory, start, len)?;
+                    let message: String = get_deserialize(&caller, &memory, start, len)?;
 
                     callback(message.to_string());
                     Ok(())
@@ -130,7 +129,10 @@ impl WasmBox for WasmBoxHost {
         let fn_malloc = instance.get_typed_func::<u32, u32, _>(&mut store, EXT_FN_MALLOC)?;
         let fn_free = instance.get_typed_func::<(u32, u32), (), _>(&mut store, EXT_FN_FREE)?;
         let fn_send =
-            instance.get_typed_func::<(u32, u32), (), _>(&mut store, EXT_FN_CALLBACK)?;
+            instance.get_typed_func::<(u32, u32), (), _>(&mut store, EXT_FN_SEND)?;
+        let fn_initialize = instance.get_typed_func::<(), (), _>(&mut store, EXT_FN_INITIALIZE)?;
+
+        fn_initialize.call(&mut store, ())?;
 
         Ok(WasmBoxHost {
             store,

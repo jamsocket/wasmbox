@@ -30,7 +30,7 @@ pub fn initialize<B>() where B: WasmBox<Input=String, Output=String> {
 extern "C" fn send(ptr: *const u8, len: usize) {
     unsafe {
         let bytes = std::slice::from_raw_parts(ptr, len).to_vec();
-        let message = bincode::deserialize(&bytes).expect("Error deserializing.");
+        let message: String = bincode::deserialize(&bytes).expect("Error deserializing.");
         WASM_BOX.as_mut().expect("Received message before initialized.").message(message);
     };
 }

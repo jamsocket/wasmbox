@@ -1,0 +1,9 @@
+[package]
+name = "wasmbox-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.57"
+clap = {version="3.1.18", features=["derive"]}
+wasmbox-host = {path="../wasmbox-host"}
