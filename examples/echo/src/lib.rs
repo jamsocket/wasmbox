@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use wasmbox::wasm::*;
-use wasmbox::{WasmBox};
+use wasmbox::WasmBox;
 
 struct Echo {
     callback: Box<dyn Fn(String)>,
@@ -23,11 +23,10 @@ impl WasmBox for Echo {
     type Input = String;
     type Output = String;
 
-    fn init<F>(callback: F) -> Self
-    where
-        F: Fn(Self::Output) + 'static + Send + Sync, Self: Sized {
-        
-        Echo { callback: Box::new(callback) }
+    fn init(callback: Box<dyn Fn(Self::Output) + Send + Sync>) -> Self {
+        Echo {
+            callback: Box::new(callback),
+        }
     }
 
     fn message(&mut self, input: Self::Input) {

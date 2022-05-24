@@ -8,8 +8,8 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     rc::Rc,
-    sync::mpsc::{Receiver, TryRecvError, channel, Sender},
-    task::{Poll, Context, Waker},
+    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+    task::{Context, Poll, Waker},
 };
 
 /// WASM is single-threaded, so we can safely ignore Send requirements.
@@ -18,13 +18,14 @@ struct IgnoreSend<T>(pub T);
 unsafe impl<T> Send for IgnoreSend<T> {}
 unsafe impl<T> Sync for IgnoreSend<T> {}
 
-pub trait WasmBox: 'static {
+pub trait WasmBox: 'static
+{
     type Input: Serialize;
     type Output: DeserializeOwned;
 
-    fn init<F>(callback: F) -> Self
+    fn init(callback: Box<dyn Fn(Self::Output) + Send + Sync>) -> Self
     where
-        F: Fn(Self::Output) + 'static + Send + Sync, Self: Sized;
+        Self: Sized;
 
     fn message(&mut self, input: Self::Input);
 }
@@ -46,15 +47,13 @@ impl<Input> Future for NextMessageFuture<Input> {
     }
 }
 
-pub struct WasmBoxContext<B: AsyncWasmBox>
-{
+pub struct WasmBoxContext<B: AsyncWasmBox> {
     callback: Box<dyn Fn(B::Output) + Send + Sync>,
     queue: IgnoreSend<Rc<Receiver<B::Input>>>,
     _ph_o: PhantomData<B::Output>,
 }
 
-impl<B: AsyncWasmBox> WasmBoxContext<B>
-{
+impl<B: AsyncWasmBox> WasmBoxContext<B> {
     fn new(callback: Box<dyn Fn(B::Output) + Send + Sync>, receiver: Receiver<B::Input>) -> Self {
         WasmBoxContext {
             callback,
@@ -113,7 +112,6 @@ mod dummy_context {
     }
 }
 
-
 struct AsyncWasmBoxBox<B>
 where
     B: AsyncWasmBox,
@@ -124,9 +122,16 @@ where
     waker: Waker,
 }
 
-impl<B> AsyncWasmBoxBox<B> where B: AsyncWasmBox {
+impl<B> AsyncWasmBoxBox<B>
+where
+    B: AsyncWasmBox,
+{
     fn poll(&mut self) {
-        match self.future.as_mut().poll(&mut Context::from_waker(&self.waker)) {
+        match self
+            .future
+            .as_mut()
+            .poll(&mut Context::from_waker(&self.waker))
+        {
             Poll::Ready(_) => panic!("Function exited."),
             Poll::Pending => (),
         }
@@ -135,21 +140,24 @@ impl<B> AsyncWasmBoxBox<B> where B: AsyncWasmBox {
 
 impl<B> WasmBox for AsyncWasmBoxBox<B>
 where
-    B: AsyncWasmBox
+    B: AsyncWasmBox,
 {
     type Input = B::Input;
     type Output = B::Output;
 
-    fn init<F_>(callback: F_) -> Self
-    where
-        F_: Fn(Self::Output) + 'static + Send + Sync,
+    fn init(callback: Box<dyn Fn(B::Output) + Send + Sync>) -> Self
     {
         let (sender, recv) = channel();
-        let ctx = WasmBoxContext::new(Box::new(callback), recv);
+        let ctx = WasmBoxContext::new(callback, recv);
         let future = B::run(ctx);
         let waker = dummy_context::waker();
 
-        let mut async_box = AsyncWasmBoxBox { future, sender, waker, _ph_b: PhantomData::default() };
+        let mut async_box = AsyncWasmBoxBox {
+            future,
+            sender,
+            waker,
+            _ph_b: PhantomData::default(),
+        };
 
         async_box.poll();
         async_box

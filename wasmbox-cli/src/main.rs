@@ -13,6 +13,7 @@ fn main() -> anyhow::Result<()> {
         WasmBoxHost::init(&opts.wasm_filename, |st| println!("got: [{}]", st))?;
 
     mybox.message("heyo".to_string());
+    mybox.message("heya".to_string());
 
     Ok(())
 }

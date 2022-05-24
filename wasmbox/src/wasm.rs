@@ -20,7 +20,7 @@ pub fn wrapped_callback(message: String) {
 }
 
 pub fn initialize<B>() where B: WasmBox<Input=String, Output=String> {
-    let wasm_box = B::init(wrapped_callback);
+    let wasm_box = B::init(Box::new(wrapped_callback));
     unsafe {
         WASM_BOX.replace(Box::new(wasm_box));
     }
