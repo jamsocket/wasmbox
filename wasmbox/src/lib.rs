@@ -12,27 +12,33 @@ use std::{
     task::{Poll, Context, Waker},
 };
 
+/// WASM is single-threaded, so we can safely ignore Send requirements.
+#[derive(Clone)]
+struct IgnoreSend<T>(pub T);
+unsafe impl<T> Send for IgnoreSend<T> {}
+unsafe impl<T> Sync for IgnoreSend<T> {}
+
 pub trait WasmBox: 'static {
     type Input: Serialize;
     type Output: DeserializeOwned;
 
     fn init<F>(callback: F) -> Self
     where
-        F: Fn(Self::Output) + 'static, Self: Sized;
+        F: Fn(Self::Output) + 'static + Send + Sync, Self: Sized;
 
     fn message(&mut self, input: Self::Input);
 }
 
 pub struct NextMessageFuture<Input> {
     _ph_output: PhantomData<Input>,
-    queue: Rc<Receiver<Input>>,
+    queue: IgnoreSend<Rc<Receiver<Input>>>,
 }
 
 impl<Input> Future for NextMessageFuture<Input> {
     type Output = Input;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<Input> {
-        match self.queue.try_recv() {
+        match self.queue.0.try_recv() {
             Ok(value) => Poll::Ready(value),
             Err(TryRecvError::Empty) => Poll::Pending,
             _ => panic!("Queue became disconnected."),
@@ -40,32 +46,28 @@ impl<Input> Future for NextMessageFuture<Input> {
     }
 }
 
-pub struct WasmBoxContext<Input, Output, F>
-where
-    F: Fn(Output) + 'static,
+pub struct WasmBoxContext<B: AsyncWasmBox>
 {
-    callback: F,
-    queue: Rc<Receiver<Input>>,
-    _ph_o: PhantomData<Output>,
+    callback: Box<dyn Fn(B::Output) + Send + Sync>,
+    queue: IgnoreSend<Rc<Receiver<B::Input>>>,
+    _ph_o: PhantomData<B::Output>,
 }
 
-impl<Input, Output, F> WasmBoxContext<Input, Output, F>
-where
-    F: Fn(Output),
+impl<B: AsyncWasmBox> WasmBoxContext<B>
 {
-    fn new(callback: F, receiver: Receiver<Input>) -> Self {
+    fn new(callback: Box<dyn Fn(B::Output) + Send + Sync>, receiver: Receiver<B::Input>) -> Self {
         WasmBoxContext {
             callback,
-            queue: Rc::new(receiver),
+            queue: IgnoreSend(Rc::new(receiver)),
             _ph_o: PhantomData::default(),
         }
     }
 
-    pub fn send(&self, output: Output) {
+    pub fn send(&self, output: B::Output) {
         (self.callback)(output);
     }
 
-    pub fn next(&self) -> NextMessageFuture<Input> {
+    pub fn next(&self) -> NextMessageFuture<B::Input> {
         NextMessageFuture {
             _ph_output: PhantomData::default(),
             queue: self.queue.clone(),
@@ -74,13 +76,11 @@ where
 }
 
 #[async_trait]
-pub trait AsyncWasmBox: 'static {
+pub trait AsyncWasmBox: 'static + Sized {
     type Input: Serialize;
     type Output: DeserializeOwned;
 
-    async fn run<F>(ctx: WasmBoxContext<Self::Input, Self::Output, F>) -> ()
-    where
-        F: Fn(Self::Output);
+    async fn run(ctx: WasmBoxContext<Self>) -> ();
 }
 
 mod dummy_context {
@@ -142,10 +142,10 @@ where
 
     fn init<F_>(callback: F_) -> Self
     where
-        F_: Fn(Self::Output) + 'static,
+        F_: Fn(Self::Output) + 'static + Send + Sync,
     {
         let (sender, recv) = channel();
-        let ctx = WasmBoxContext::new(callback, recv);
+        let ctx = WasmBoxContext::new(Box::new(callback), recv);
         let future = B::run(ctx);
         let waker = dummy_context::waker();
 

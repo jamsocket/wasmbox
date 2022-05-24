@@ -1,12 +1,18 @@
-use wasmbox::WasmBox;
+use async_trait::async_trait;
+use wasmbox::{AsyncWasmBox, WasmBoxContext};
 
 struct Echo;
 
-impl WasmBox for Echo {
+#[async_trait]
+impl AsyncWasmBox for Echo {
     type Input = String;
     type Output = String;
 
-    fn message<F>(&mut self, input: Self::Input, callback: F) where F: Fn(Self::Output) {
-        callback(format!("echo: {}", input));
+    async fn run(ctx: WasmBoxContext<Self>) -> ()
+    {
+        loop {
+            let message = ctx.next().await;
+            ctx.send(format!("Echo: {}", message));
+        }        
     }
 }
