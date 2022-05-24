@@ -1,3 +1,6 @@
+#[cfg(not(test))]
+pub mod wasm;
+
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -9,13 +12,13 @@ use std::{
     task::{Poll, Context, Waker},
 };
 
-pub trait WasmBox {
+pub trait WasmBox: 'static {
     type Input: Serialize;
     type Output: DeserializeOwned;
 
     fn init<F>(callback: F) -> Self
     where
-        F: Fn(Self::Output) + 'static;
+        F: Fn(Self::Output) + 'static, Self: Sized;
 
     fn message(&mut self, input: Self::Input);
 }
