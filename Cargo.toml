@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "wasmbox*",
+    "examples/*",
+]
