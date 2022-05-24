@@ -1,40 +1,24 @@
 #[allow(unused_imports)]
 use wasmbox::wasm::*;
-use wasmbox::WasmBox;
+use wasmbox::{AsyncWasmBox, WasmBoxContext};
+use async_trait::async_trait;
 
-struct Echo {
-    callback: Box<dyn Fn(String)>,
-}
+struct Echo;
 
-// #[async_trait]
-// impl AsyncWasmBox for Echo {
-//     type Input = String;
-//     type Output = String;
-
-//     async fn run(ctx: WasmBoxContext<Self>) -> () {
-//         loop {
-//             let message = ctx.next().await;
-//             ctx.send(format!("Echo: {}", message));
-//         }
-//     }
-// }
-
-impl WasmBox for Echo {
+#[async_trait]
+impl AsyncWasmBox for Echo {
     type Input = String;
     type Output = String;
 
-    fn init(callback: Box<dyn Fn(Self::Output) + Send + Sync>) -> Self {
-        Echo {
-            callback: Box::new(callback),
+    async fn run(ctx: WasmBoxContext<Self>) -> () {
+        loop {
+            let message = ctx.next().await;
+            ctx.send(format!("Echo: {}", message));
         }
-    }
-
-    fn message(&mut self, input: Self::Input) {
-        (self.callback)(format!("Echo: `{}`", input));
     }
 }
 
 #[no_mangle]
 extern "C" fn initialize() {
-    wasmbox::wasm::initialize::<Echo>()
+    wasmbox::wasm::initialize_async::<Echo>()
 }

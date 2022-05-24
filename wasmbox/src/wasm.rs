@@ -1,4 +1,4 @@
-use crate::WasmBox;
+use crate::{WasmBox, AsyncWasmBox, AsyncWasmBoxBox};
 
 extern crate alloc;
 
@@ -21,6 +21,13 @@ pub fn wrapped_callback(message: String) {
 
 pub fn initialize<B>() where B: WasmBox<Input=String, Output=String> {
     let wasm_box = B::init(Box::new(wrapped_callback));
+    unsafe {
+        WASM_BOX.replace(Box::new(wasm_box));
+    }
+}
+
+pub fn initialize_async<B>() where B: AsyncWasmBox<Input=String, Output=String> {
+    let wasm_box: AsyncWasmBoxBox<B> = AsyncWasmBoxBox::init(Box::new(wrapped_callback));
     unsafe {
         WASM_BOX.replace(Box::new(wasm_box));
     }

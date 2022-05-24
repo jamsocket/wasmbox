@@ -112,7 +112,7 @@ mod dummy_context {
     }
 }
 
-struct AsyncWasmBoxBox<B>
+pub struct AsyncWasmBoxBox<B>
 where
     B: AsyncWasmBox,
 {
