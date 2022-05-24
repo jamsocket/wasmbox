@@ -1026,6 +1026,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "serde",
+ "wasmbox-macro",
 ]
 
 [[package]]
@@ -1045,6 +1046,15 @@ dependencies = [
  "bincode",
  "serde",
  "wasmtime",
+]
+
+[[package]]
+name = "wasmbox-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
