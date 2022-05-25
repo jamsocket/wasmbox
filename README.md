@@ -15,7 +15,7 @@ It does this by compiling it to WebAssembly and running it in a sandbox. To snap
 
 WasmBox has two components: the host environment and the guest module. The host environment is the program that interacts with the WasmBox from the outside. The guest module is the program that runs *inside* the WasmBox. The guest module is a separate Rust compiler artifact, compiled to target `wasm32-wasi`.
 
-The two components interact through bidirectional, typed communication provided by WasmBox. Both synchronous and asynchronous interfaces are provided for developing the module.
+The two components interact through bidirectional, typed communication provided by WasmBox. Both synchronous and asynchronous interfaces are provided for developing the guest module.
 
 To use the asynchronous interface, create a function with the signature `async fn run(ctx: WasmBoxContext<String, String>`, and decorate it with the `#[wasmbox]` annotation.
 
@@ -39,7 +39,9 @@ async fn run(ctx: WasmBoxContext<String, String>) {
 }
 ```
 
-Note: the `<String, String>` attributes of `WasmBoxContext` are the types of data passed into and out of the WasmBox, respectively. `ctx.next()` returns a value of the first type, and `ctx.send()` expects a value of the second type. If you are writing your own host environment, you can use any (de)serializable type here, as long as the pair of types is the same on both the host environment and the guest module. The demonstration host environment provided by `wasmbox-cli` only supports `<String, String>`, so that's what we use here.
+The `<String, String>` attributes of `WasmBoxContext` are the types of data passed into and out of the WasmBox, respectively. `ctx.next()` returns a value of the first type, and `ctx.send()` expects a value of the second type. If you are writing your own host environment, you can use any [(de)serializable](https://serde.rs/) type here, **as long as the pair of types is the same on both the host environment and the guest module**. Since the guest module is loaded in dynamically at runtime, this can't be enforced by the compiler, so it's up to you to ensure.
+
+The demonstration host environment provided by `wasmbox-cli` only supports `<String, String>`, so that's what we use here.
 
 #### Compiling guest modules
 
@@ -139,6 +141,12 @@ impl WasmBox for Counter {
     }
 }
 ```
+
+## CLI Tool
+
+A CLI tool is provided for loading and interacting with guest modules. It relays messages to and from the guest module over `stdin` and `stdout`. It only supports guest modules that have the types `<String, String>`, since `stdin` and `stdout` deal with string data.
+
+Each line is treated as a separate message and relayed to the guest module, except for two special commands. `!!snapshot` takes a snapshot of the guest module and saves it to disk, printing the name of the resulting file. `!!restore <filename>` restores the guest module state from one of these snapshots.
 
 ## Safety
 

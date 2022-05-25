@@ -11,12 +11,20 @@ struct Opts {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Compile a wasm module to a preprocessed module. This is an optional step for faster start-up times.
     Compile {
+        /// The path to a .wasm file.
         wasm_filename_in: String,
+
+        /// The name of the file to write compiled data to.
         module_filename_out: String,
     },
+    /// Run a module interactively.
     Run {
+        /// The path to a compiled module (as output by the compile command.)
         compiled_module_filename: Option<String>,
+
+        /// The path to a .wasm file (as output directly from the Rust compiler.)
         wasm_filename: Option<String>,
     },
 }
@@ -53,7 +61,7 @@ fn main() -> anyhow::Result<()> {
             for line in iterator {
                 let line = line?;
 
-                if line == "!!freeze" {
+                if line == "!!snapshot" {
                     let timestamp = std::time::SystemTime::now()
                         .duration_since(std::time::SystemTime::UNIX_EPOCH)
                         .expect("duration_should failed.");
