@@ -3,6 +3,7 @@
 [![GitHub Repo stars](https://img.shields.io/github/stars/drifting-in-space/wasmbox?style=social)](https://github.com/drifting-in-space/wasmbox)
 [![crates.io](https://img.shields.io/crates/v/wasmbox.svg)](https://crates.io/crates/wasmbox)
 [![docs.rs](https://img.shields.io/badge/docs-release-brightgreen)](https://docs.rs/wasmbox/)
+[![Rust](https://github.com/drifting-in-space/wasmbox/actions/workflows/rust.yml/badge.svg)](https://github.com/drifting-in-space/wasmbox/actions/workflows/rust.yml)
 
 WasmBox turns running Rust code into a serializable data structure.
 
