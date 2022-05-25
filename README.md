@@ -40,6 +40,23 @@ async fn run(ctx: WasmBoxContext<String, String>) {
 
 Note: the `<String, String>` attributes of `WasmBoxContext` are the types of data passed into and out of the WasmBox, respectively. `ctx.next()` returns a value of the first type, and `ctx.send()` expects a value of the second type. If you are writing your own host environment, you can use any (de)serializable type here, as long as the pair of types is the same on both the host environment and the guest module. The demonstration host environment provided by `wasmbox-cli` only supports `<String, String>`, so that's what we use here.
 
+#### Compiling guest modules
+
+Guest modules should have the following in their `Cargo.toml`:
+
+```text
+[lib]
+crate-type = ["cdylib", "rlib"]
+```
+
+They should be compiled with the target `wasm32-wasi` like so:
+
+```text
+cargo build --release --target=wasm32-wasi
+```
+
+Look for a `.wasm` file under `target/wasm32-wasi/release`.
+
 ### Host environment
 
 The host environment is always the same (synchronous) interface, regardless of whether the guest module is using the asynchronous or synchronous interface.
