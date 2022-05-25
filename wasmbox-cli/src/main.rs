@@ -1,5 +1,6 @@
 use clap::Parser;
 use wasmbox_host::{WasmBox, WasmBoxHost};
+use std::io::BufRead;
 
 #[derive(Parser)]
 struct Opts {
@@ -10,10 +11,14 @@ fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
 
     let mut mybox =
-        WasmBoxHost::init(&opts.wasm_filename, |st| println!("got: [{}]", st))?;
+        WasmBoxHost::init(&opts.wasm_filename, |st| println!("==> [{}]", st))?;
 
-    mybox.message("heyo".to_string());
-    mybox.message("heya".to_string());
+    let stdin = std::io::stdin();
+    let iterator = stdin.lock().lines();
+
+    for line in iterator {
+        mybox.message(line?);
+    }
 
     Ok(())
 }

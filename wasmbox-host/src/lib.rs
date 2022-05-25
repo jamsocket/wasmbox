@@ -61,7 +61,6 @@ pub trait WasmBox: 'static {
 pub struct WasmBoxHost {
     store: Store<()>,
     memory: Memory,
-    //callback: Box<dyn Fn(String)>,
 
     fn_malloc: TypedFunc<u32, u32>,
     fn_free: TypedFunc<(u32, u32), ()>,
