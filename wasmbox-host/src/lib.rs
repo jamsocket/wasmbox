@@ -1,14 +1,16 @@
 use serde::{de::DeserializeOwned, Serialize};
 use wasmtime::{Caller, Engine, Extern, Linker, Memory, Store, TypedFunc, Module};
 use anyhow::anyhow;
+use wasmtime_wasi::sync::WasiCtxBuilder;
+use wasmtime_wasi::WasiCtx;
 
 const ENV: &str = "env";
 const EXT_MEMORY: &str = "memory";
-const EXT_FN_CALLBACK: &str = "callback";
-const EXT_FN_SEND: &str = "send";
-const EXT_FN_MALLOC: &str = "malloc";
-const EXT_FN_FREE: &str = "free";
-const EXT_FN_INITIALIZE: &str = "initialize";
+const EXT_FN_CALLBACK: &str = "wasmbox_callback";
+const EXT_FN_SEND: &str = "wasmbox_send";
+const EXT_FN_MALLOC: &str = "wasmbox_malloc";
+const EXT_FN_FREE: &str = "wasmbox_free";
+const EXT_FN_INITIALIZE: &str = "wasmbox_initialize";
 
 #[inline]
 fn get_memory<T>(caller: &mut Caller<'_, T>) -> Memory {
@@ -59,7 +61,7 @@ pub trait WasmBox: 'static {
 }
 
 pub struct WasmBoxHost {
-    store: Store<()>,
+    store: Store<WasiCtx>,
     memory: Memory,
 
     fn_malloc: TypedFunc<u32, u32>,
@@ -103,14 +105,20 @@ impl WasmBox for WasmBoxHost {
         let engine = Engine::default();
         let module = Module::from_file(&engine, wasm_file)?;
 
-        let mut store = Store::new(&engine, ());
+        let wasi = WasiCtxBuilder::new()
+            .inherit_stdout()
+            .inherit_stderr()
+            .build();
+
+        let mut store = Store::new(&engine, wasi);
         let mut linker = Linker::new(&engine);
+        wasmtime_wasi::add_to_linker(&mut linker, |s| s)?;
 
         {
             linker.func_wrap(
                 ENV,
                 EXT_FN_CALLBACK,
-                move |mut caller: Caller<'_, ()>, start: u32, len: u32| {
+                move |mut caller: Caller<'_, WasiCtx>, start: u32, len: u32| {
                     let memory = get_memory(&mut caller);
                     let message: String = get_deserialize(&caller, &memory, start, len)?;
 

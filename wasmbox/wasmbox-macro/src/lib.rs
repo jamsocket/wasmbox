@@ -55,7 +55,7 @@ fn wasmbox_impl(item: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
             }
 
             #[no_mangle]
-            extern "C" fn initialize() {
+            extern "C" fn wasmbox_initialize() {
                 initialize_async::<WasmBoxImpl>();
             }
         }

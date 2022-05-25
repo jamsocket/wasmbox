@@ -2,8 +2,10 @@
 
 set -e
 
-cargo build --target=wasm32-unknown-unknown -p $1_example
+export QUICKJS_WASM_SYS_WASI_SDK_PATH=/home/paul/wasi-sdk-14.0
 
-export WASMTIME_BACKTRACE_DETAILS=1
+cargo build --release --target=wasm32-wasi -p $1_example
 
-cargo run -p wasmbox-cli -- target/wasm32-unknown-unknown/debug/$1_example.wasm
+#export WASMTIME_BACKTRACE_DETAILS=1
+
+cargo run -p wasmbox-cli -- target/wasm32-wasi/release/$1_example.wasm

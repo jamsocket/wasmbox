@@ -1,4 +1,4 @@
-use quickjs_wasm_rs::Context;
+use quickjs_wasm_rs::{Context, Value};
 
 #[allow(unused_imports)]
 use wasmbox::prelude::*;
@@ -10,12 +10,16 @@ unsafe impl<T> Sync for IgnoreSend<T> {}
 
 #[wasmbox]
 async fn run(ctx: WasmBoxContext<Self>) {
-    let context = IgnoreSend(Context::new().unwrap());
+    let context = IgnoreSend(Context::default());
 
+    ctx.send("ready".to_string());
     loop {
         let message = ctx.next().await;
-        let value = context.0.eval(&message).unwrap();
-
-        ctx.send(format!("result: {:?}", value));
+        match context.0.eval_global("main", &message) {
+            Ok(value) => {
+                ctx.send(format!("=> {}", value.as_str().unwrap()))
+            },
+            Err(e) => ctx.send(format!("ERROR: {:?}", e)),
+        }
     }
 }
