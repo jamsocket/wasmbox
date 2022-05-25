@@ -1,4 +1,3 @@
 pub use crate::wasm::*;
-pub use crate::{AsyncWasmBox, WasmBoxContext};
-
-pub use wasmbox_macro::wasmbox;
+pub use crate::{AsyncWasmBox, WasmBoxContext, WasmBox};
+pub use wasmbox_macro::{wasmbox, wasmbox_sync};

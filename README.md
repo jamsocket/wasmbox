@@ -55,6 +55,8 @@ They should be compiled with the target `wasm32-wasi` like so:
 cargo build --release --target=wasm32-wasi
 ```
 
+You might have to install the `wasm32-wasi` target (e.g. using `rustup`).
+
 Look for a `.wasm` file under `target/wasm32-wasi/release`.
 
 ### Host environment
