@@ -1,5 +1,9 @@
 # WasmBox
 
+[![GitHub Repo stars](https://img.shields.io/github/stars/drifting-in-space/wasmbox?style=social)](https://github.com/drifting-in-space/wasmbox)
+[![crates.io](https://img.shields.io/crates/v/wasmbox.svg)](https://crates.io/crates/wasmbox)
+[![docs.rs](https://img.shields.io/badge/docs-release-brightgreen)](https://docs.rs/wasmbox/)
+
 WasmBox turns running Rust code into a serializable data structure.
 
 It does this by compiling it to WebAssembly and running it in a sandbox. To snapshot the running code, it serializes the sandbox's linear memory, which contains the entire heap of the program.
