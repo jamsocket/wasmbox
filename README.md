@@ -21,7 +21,6 @@ To use the asynchronous interface, create a function with the signature `async f
 The following example implements a trivial stateful WasmBox guest module which stores counter state internally. It waits for input from the host environment. When it recieves the inputs `"up"` or `"down"` from the host environment, it modifies the counter state internally and publishes it back to the host environment.
 
 ```rust,no_run
-#[allow(unused_imports)]
 use wasmbox::prelude::*;
 
 #[wasmbox]
@@ -54,11 +53,27 @@ use wasmbox_host::WasmBoxHost;
 use anyhow::Result;
 
 fn main() -> Result<()> {
-    let mut mybox = WasmBoxHost::from_wasm_file("path/to/some/module.wasm", |st: String| println!("got from module: {}", st))?;
+    let mut mybox = WasmBoxHost::from_wasm_file("path/to/some/module.wasm",
+        |st: String| println!("guest module says: {}", st))?;
 
     // Send some messages into the box:
     mybox.message("The guest module will receive this message.");
     mybox.message("And this one.");
+
+    // Turn the state into a serializable object.
+    let state = mybox.snapshot_state()?;
+    
+    // Or, serialize directly to disk:
+    mybox.snapshot_to_file("snapshot.bin")?;
+
+    // We can interact more with the box:
+    mybox.message("Pretend this message has a side-effect on the box's state.");
+
+    // And then restore the state, undoing the last side-effect.
+    mybox.restore_snapshot(&state)?;
+
+    // Or, restore directly from disk:
+    mybox.restore_snapshot_from_file("snapshot.bin")?;
 
     Ok(())
 }
