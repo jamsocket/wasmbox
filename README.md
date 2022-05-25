@@ -4,10 +4,6 @@ WasmBox turns running Rust code into a serializable data structure.
 
 It does this by compiling it to WebAssembly and running it in a sandbox. To snapshot the running code, it serializes the sandbox's linear memory, which contains the entire heap of the program.
 
-<a href="wasmbox.png"><img src="wasmbox.png" style="max-width: 300px;" alt="A steampunk machine contained in a cardboard box." /></a>
-
-*Image generated with [midjourney](https://twitter.com/midjourney)*
-
 **WasmBox is new and experimental.** Before relying on it in production code, feel free to open an issue and we can discuss 🙂.
 
 ## Interface
