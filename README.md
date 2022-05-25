@@ -43,7 +43,26 @@ Note: the `<String, String>` attributes of `WasmBoxContext` are the types of dat
 
 ### Host environment
 
+The host environment is always the same (synchronous) interface, regardless of whether the guest module is using the asynchronous or synchronous interface.
 
+Constructing a host environment (`WasmBoxHost`) requires two things: the module to load, and a callback to use for receiving messages from the guest module. The module can either be passed in as a `.wasm` file, or as a pre-compiled module.
+
+See `wasmbox-cli` for an example of implementing a host environment.
+
+```rust,no_run
+use wasmbox_host::WasmBoxHost;
+use anyhow::Result;
+
+fn main() -> Result<()> {
+    let mut mybox = WasmBoxHost::from_wasm_file("path/to/some/module.wasm", |st: String| println!("got from module: {}", st))?;
+
+    // Send some messages into the box:
+    mybox.message("The guest module will receive this message.");
+    mybox.message("And this one.");
+
+    Ok(())
+}
+```
 
 ## Safety
 
@@ -54,4 +73,5 @@ This module uses unsafe a lot, in particular within the WASM code. The host also
 - It's likely to be slower than native code, because it uses WebAssembly.
 - To provide a deterministic environment, access to anything outside the sandbox is blocked. The system clock is mocked to create a deterministic (but monotonically increasing) clock. Random entropy is not random, but comes from a seeded pseudo-random number generator.
 - To avoid unnecessary repetition, the state does not include the program module itself; it is up to the caller to ensure that the same WASM module that created a snapshot is running when the snapshot is restored.
+- Currently, the `WasmBoxHost` environment owns *everything* about the WebAssembly environment, including things which could be shared between instances. This is inefficient if you want to run many instances of the same module, for instance.
 - Probably lots of other things.

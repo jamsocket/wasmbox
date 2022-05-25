@@ -1269,9 +1269,11 @@ dependencies = [
 name = "wasmbox"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "bincode",
  "serde",
+ "wasmbox-host",
  "wasmbox-macro",
 ]
 
