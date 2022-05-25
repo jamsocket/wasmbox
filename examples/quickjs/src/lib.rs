@@ -9,7 +9,7 @@ unsafe impl<T> Send for IgnoreSend<T> {}
 unsafe impl<T> Sync for IgnoreSend<T> {}
 
 #[wasmbox]
-async fn run(ctx: WasmBoxContext<Self>) {
+async fn run(ctx: WasmBoxContext<String, String>) {
     let context = IgnoreSend(Context::default());
 
     ctx.send("ready".to_string());

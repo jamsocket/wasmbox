@@ -3,7 +3,9 @@ use anyhow::anyhow;
 use cap_std::time::{Duration, Instant, SystemClock, SystemTime};
 use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha12Rng;
+use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
+use std::fs::File;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -136,7 +138,7 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         Ok(())
     }
 
-    pub fn init<F>(module_file: &str, callback: F) -> anyhow::Result<Self>
+    pub fn from_compiled_module<F>(module_file: &str, callback: F) -> anyhow::Result<Self>
     where
         F: Fn(Output) + 'static + Send + Sync,
         Self: Sized,
@@ -144,6 +146,25 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         let engine = Engine::default();
         let module = unsafe { Module::deserialize_file(&engine, module_file)? };
 
+        Ok(Self::init(engine, module, callback)?)
+    }
+
+    pub fn from_wasm_file<F>(module_file: &str, callback: F) -> anyhow::Result<Self>
+    where
+        F: Fn(Output) + 'static + Send + Sync,
+        Self: Sized,
+    {
+        let engine = Engine::default();
+        let module = Module::from_file(&engine, module_file)?;
+
+        Ok(Self::init(engine, module, callback)?)
+    }
+
+    fn init<F>(engine: Engine, module: Module, callback: F) -> anyhow::Result<Self>
+    where
+        F: Fn(Output) + 'static + Send + Sync,
+        Self: Sized,
+    {
         let mut wasi = WasiCtxBuilder::new()
             .inherit_stdout()
             .inherit_stderr()
@@ -205,19 +226,37 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         self.try_send(input).expect("Error sending message.")
     }
 
-    pub fn freeze(&self, filename: &str) -> anyhow::Result<()> {
+    pub fn snapshot_state(&self) -> anyhow::Result<WasmBoxHostState> {
         let memory = self.memory.data(&self.store);
 
-        // TODO: serialize time state too
-        Ok(std::fs::write(filename, &memory)?)
+        Ok(WasmBoxHostState {
+            memory: memory.to_vec(),
+        })
     }
 
-    pub fn restore(&mut self, filename: &str) -> anyhow::Result<()> {
-        let data = std::fs::read(filename)?;
-
-        let mut p = self.memory.data_mut(&mut self.store);
-        p.write_all(&data)?;
+    pub fn snapshot_to_file(&self, filename: &str) -> anyhow::Result<()> {
+        let snapshot = self.snapshot_state()?;
+        std::fs::write(filename, bincode::serialize(&snapshot)?)?;
 
         Ok(())
     }
+
+    pub fn restore_snapshot(&mut self, snapshot: &WasmBoxHostState) -> anyhow::Result<()> {
+        let mut p = self.memory.data_mut(&mut self.store);
+        p.write_all(&snapshot.memory)?;
+
+        Ok(())
+    }
+
+    pub fn restore_snapshot_from_file(&mut self, filename: &str) -> anyhow::Result<()> {
+        let contents: WasmBoxHostState = bincode::deserialize_from(File::open(filename)?)?;
+        self.restore_snapshot(&contents)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WasmBoxHostState {
+    memory: Vec<u8>,
 }

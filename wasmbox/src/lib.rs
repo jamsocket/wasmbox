@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub mod prelude;
 pub mod wasm;
 
@@ -46,14 +48,14 @@ impl<Input> Future for NextMessageFuture<Input> {
     }
 }
 
-pub struct WasmBoxContext<B: AsyncWasmBox> {
-    callback: Box<dyn Fn(B::Output) + Send + Sync>,
-    queue: IgnoreSend<Rc<Receiver<B::Input>>>,
-    _ph_o: PhantomData<B::Output>,
+pub struct WasmBoxContext<Input, Output> {
+    callback: Box<dyn Fn(Output) + Send + Sync>,
+    queue: IgnoreSend<Rc<Receiver<Input>>>,
+    _ph_o: PhantomData<Output>,
 }
 
-impl<B: AsyncWasmBox> WasmBoxContext<B> {
-    fn new(callback: Box<dyn Fn(B::Output) + Send + Sync>, receiver: Receiver<B::Input>) -> Self {
+impl<Input, Output> WasmBoxContext<Input, Output> {
+    fn new(callback: Box<dyn Fn(Output) + Send + Sync>, receiver: Receiver<Input>) -> Self {
         WasmBoxContext {
             callback,
             queue: IgnoreSend(Rc::new(receiver)),
@@ -61,11 +63,11 @@ impl<B: AsyncWasmBox> WasmBoxContext<B> {
         }
     }
 
-    pub fn send(&self, output: B::Output) {
+    pub fn send(&self, output: Output) {
         (self.callback)(output);
     }
 
-    pub fn next(&self) -> NextMessageFuture<B::Input> {
+    pub fn next(&self) -> NextMessageFuture<Input> {
         NextMessageFuture {
             _ph_output: PhantomData::default(),
             queue: self.queue.clone(),
@@ -78,7 +80,7 @@ pub trait AsyncWasmBox: 'static + Sized {
     type Input: Serialize;
     type Output: DeserializeOwned;
 
-    async fn run(ctx: WasmBoxContext<Self>) -> ();
+    async fn run(ctx: WasmBoxContext<Self::Input, Self::Output>) -> ();
 }
 
 mod dummy_context {

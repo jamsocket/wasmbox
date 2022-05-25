@@ -1,5 +1,5 @@
 [package]
-name = "quickjs_example"
+name = "quickjs-example"
 version = "0.1.0"
 edition = "2021"
 
