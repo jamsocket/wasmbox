@@ -1,4 +1,3 @@
-#[allow(unused_imports)]
 use wasmbox::prelude::*;
 
 #[wasmbox_sync]

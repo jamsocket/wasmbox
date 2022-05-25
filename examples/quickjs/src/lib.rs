@@ -1,6 +1,4 @@
 use quickjs_wasm_rs::Context;
-
-#[allow(unused_imports)]
 use wasmbox::prelude::*;
 
 #[derive(Clone)]

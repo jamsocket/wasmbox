@@ -98,6 +98,47 @@ fn main() -> Result<()> {
 }
 ```
 
+### Synchronous Guest Interface
+
+Rather than writing an async function to implement a guest, you can implement a `trait` and use the `#[wasmbox_sync]` macro.
+
+Each WasmBox is constructed with a call to `init`. Each message from the host is passed through a call to the trait's `message` function. To pass messages back to the host, a boxed `callback` function is provided in `init`.
+
+Both the `init` function and `message` functions are allowed to call the callback, and may do so multiple times.
+In order to call the callback from `message`, you can store it in the type itself.
+
+```rust,no_run
+use wasmbox::prelude::*;
+
+#[wasmbox_sync]
+struct Counter {
+    count: u32,
+    callback: Box<dyn Fn(String) + Send + Sync>,
+}
+
+impl WasmBox for Counter {
+    type Input = String;
+    type Output = String;
+
+    fn init(callback: Box<dyn Fn(Self::Output) + Send + Sync>) -> Self
+    where
+        Self: Sized,
+    {
+        Counter { count: 0, callback }
+    }
+
+    fn message(&mut self, input: Self::Input) {
+        match input.as_ref() {
+            "up" => self.count += 1,
+            "down" => self.count -= 1,
+            _ => return
+        }
+
+        (self.callback)(format!("value={}", self.count));
+    }
+}
+```
+
 ## Safety
 
 This module uses unsafe a lot, in particular within the WASM code. The host also uses unsafe when loading a pre-compiled module, which can lead to arbitrary code execution. Pre-compiled modules are safe **only** if you can be sure that they were created by wasmtime/cranelift.
