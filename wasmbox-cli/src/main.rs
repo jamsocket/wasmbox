@@ -37,7 +37,22 @@ fn main() -> anyhow::Result<()> {
             let iterator = stdin.lock().lines();
 
             for line in iterator {
-                mybox.message(line?);
+                let line = line?;
+
+                if line == "!!freeze" {
+                    let timestamp = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).expect("duration_should failed.");
+                    let filename = format!("snapshot-{}.bin", timestamp.as_secs());
+
+                    mybox.freeze(&filename)?;
+                    println!("Froze to {}", filename);
+                } else if let Some(filename) = line.strip_prefix("!!restore ") {
+                    mybox.restore(&filename)?;
+                    println!("Restored from {}", filename);
+                } else {
+                    mybox.message(line);
+                }
+
+                
             }
         }
     }

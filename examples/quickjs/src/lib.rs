@@ -1,4 +1,4 @@
-use quickjs_wasm_rs::{Context, Value};
+use quickjs_wasm_rs::Context;
 
 #[allow(unused_imports)]
 use wasmbox::prelude::*;

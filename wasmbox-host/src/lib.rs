@@ -4,6 +4,7 @@ use cap_std::time::{Duration, Instant, SystemClock, SystemTime};
 use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde::{de::DeserializeOwned, Serialize};
+use std::io::Write;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use wasi_common::{WasiClocks, WasiSystemClock};
@@ -141,7 +142,6 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         Self: Sized,
     {
         let engine = Engine::default();
-        //let module = Module::from_file(&engine, wasm_file)?;
         let module = unsafe { Module::deserialize_file(&engine, module_file)? };
 
         let mut wasi = WasiCtxBuilder::new()
@@ -149,6 +149,7 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
             .inherit_stderr()
             .build();
 
+        // guaranteed to be random. https://xkcd.com/221/
         let rng = ChaCha12Rng::from_seed([
             228, 89, 231, 220, 224, 20, 162, 27, 133, 157, 88, 214, 45, 102, 132, 24, 70, 0, 72,
             252, 102, 134, 132, 205, 244, 168, 130, 198, 122, 100, 17, 29,
@@ -202,5 +203,21 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
 
     pub fn message(&mut self, input: Input) {
         self.try_send(input).expect("Error sending message.")
+    }
+
+    pub fn freeze(&self, filename: &str) -> anyhow::Result<()> {
+        let memory = self.memory.data(&self.store);
+
+        // TODO: serialize time state too
+        Ok(std::fs::write(filename, &memory)?)
+    }
+
+    pub fn restore(&mut self, filename: &str) -> anyhow::Result<()> {
+        let data = std::fs::read(filename)?;
+
+        let mut p = self.memory.data_mut(&mut self.store);
+        p.write_all(&data)?;
+
+        Ok(())
     }
 }
