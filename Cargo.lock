@@ -1477,9 +1477,15 @@ dependencies = [
 name = "wasmbox-host"
 version = "0.1.0"
 dependencies = [
+ "ambient-authority",
  "anyhow",
  "bincode",
+ "cap-primitives",
+ "cap-std",
+ "rand_chacha",
+ "rand_core",
  "serde",
+ "wasi-common",
  "wasmtime",
  "wasmtime-wasi",
 ]

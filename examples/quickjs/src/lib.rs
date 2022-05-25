@@ -16,9 +16,7 @@ async fn run(ctx: WasmBoxContext<Self>) {
     loop {
         let message = ctx.next().await;
         match context.0.eval_global("main", &message) {
-            Ok(value) => {
-                ctx.send(format!("=> {}", value.as_str().unwrap()))
-            },
+            Ok(value) => ctx.send(format!("=> {}", value.as_str().unwrap())),
             Err(e) => ctx.send(format!("ERROR: {:?}", e)),
         }
     }

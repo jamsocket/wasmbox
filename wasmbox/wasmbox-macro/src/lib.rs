@@ -4,8 +4,7 @@ use quote::quote;
 use syn::{ItemFn, ReturnType};
 
 fn wasmbox_impl(item: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    let func: ItemFn =
-        syn::parse2(item.clone()).expect("#[wasmbox] should annotate a function.");
+    let func: ItemFn = syn::parse2(item.clone()).expect("#[wasmbox] should annotate a function.");
 
     if &func.sig.ident.to_string() != "run" {
         panic!("#[wasmbox] should annotate a function called `run`.");
@@ -44,7 +43,7 @@ fn wasmbox_impl(item: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
             impl AsyncWasmBox for WasmBoxImpl {
                 type Input = String;
                 type Output = String;
-                
+
                 fn run<'async_trait>(#inputs) -> Pin<Box<dyn Future<Output = ()> + Send + 'async_trait>> where
                     Self: 'async_trait
                 {

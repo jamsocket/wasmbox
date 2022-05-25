@@ -1,8 +1,8 @@
-use crate::{WasmBox, AsyncWasmBox, AsyncWasmBoxBox};
+use crate::{AsyncWasmBox, AsyncWasmBoxBox, WasmBox};
 
 extern crate alloc;
 
-static mut WASM_BOX: Option<Box<dyn WasmBox<Input=String, Output=String>>> = None;
+static mut WASM_BOX: Option<Box<dyn WasmBox<Input = String, Output = String>>> = None;
 
 extern "C" {
     /// Send a message from the wasm module to the host.
@@ -12,21 +12,24 @@ extern "C" {
 pub fn wrapped_callback(message: String) {
     let message = bincode::serialize(&message).expect("Error serializing.");
     unsafe {
-        wasmbox_callback(
-            &message[0] as *const u8 as u32,
-            message.len() as u32,
-        );
+        wasmbox_callback(&message[0] as *const u8 as u32, message.len() as u32);
     }
 }
 
-pub fn initialize<B>() where B: WasmBox<Input=String, Output=String> {
+pub fn initialize<B>()
+where
+    B: WasmBox<Input = String, Output = String>,
+{
     let wasm_box = B::init(Box::new(wrapped_callback));
     unsafe {
         WASM_BOX.replace(Box::new(wasm_box));
     }
 }
 
-pub fn initialize_async<B>() where B: AsyncWasmBox<Input=String, Output=String> {
+pub fn initialize_async<B>()
+where
+    B: AsyncWasmBox<Input = String, Output = String>,
+{
     let wasm_box: AsyncWasmBoxBox<B> = AsyncWasmBoxBox::init(Box::new(wrapped_callback));
     unsafe {
         WASM_BOX.replace(Box::new(wasm_box));
@@ -38,7 +41,10 @@ extern "C" fn wasmbox_send(ptr: *const u8, len: usize) {
     unsafe {
         let bytes = std::slice::from_raw_parts(ptr, len).to_vec();
         let message: String = bincode::deserialize(&bytes).expect("Error deserializing.");
-        WASM_BOX.as_mut().expect("Received message before initialized.").message(message);
+        WASM_BOX
+            .as_mut()
+            .expect("Received message before initialized.")
+            .message(message);
     };
 }
 

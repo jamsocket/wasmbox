@@ -1,6 +1,5 @@
-
-pub mod wasm;
 pub mod prelude;
+pub mod wasm;
 
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
@@ -19,8 +18,7 @@ struct IgnoreSend<T>(pub T);
 unsafe impl<T> Send for IgnoreSend<T> {}
 unsafe impl<T> Sync for IgnoreSend<T> {}
 
-pub trait WasmBox: 'static
-{
+pub trait WasmBox: 'static {
     type Input: Serialize;
     type Output: DeserializeOwned;
 
@@ -146,8 +144,7 @@ where
     type Input = B::Input;
     type Output = B::Output;
 
-    fn init(callback: Box<dyn Fn(B::Output) + Send + Sync>) -> Self
-    {
+    fn init(callback: Box<dyn Fn(B::Output) + Send + Sync>) -> Self {
         let (sender, recv) = channel();
         let ctx = WasmBoxContext::new(callback, recv);
         let future = B::run(ctx);
