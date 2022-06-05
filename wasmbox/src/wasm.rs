@@ -1,8 +1,11 @@
+use std::cell::RefCell;
 use crate::{AsyncWasmBox, AsyncWasmBoxBox, WasmBox};
 
 extern crate alloc;
 
-static mut WASM_BOX: Option<Box<dyn WasmBox<Input = String, Output = String>>> = None;
+thread_local! {
+    static WASM_BOX: RefCell<Option<Box<dyn WasmBox<Input = String, Output = String>>>> = RefCell::default();
+}
 
 extern "C" {
     /// Send a message from the wasm module to the host.
@@ -21,9 +24,7 @@ where
     B: WasmBox<Input = String, Output = String>,
 {
     let wasm_box = B::init(Box::new(wrapped_callback));
-    unsafe {
-        WASM_BOX.replace(Box::new(wasm_box));
-    }
+    WASM_BOX.with(|cell| cell.replace(Some(Box::new(wasm_box))));
 }
 
 pub fn initialize_async<B>()
@@ -31,21 +32,22 @@ where
     B: AsyncWasmBox<Input = String, Output = String>,
 {
     let wasm_box: AsyncWasmBoxBox<B> = AsyncWasmBoxBox::init(Box::new(wrapped_callback));
-    unsafe {
-        WASM_BOX.replace(Box::new(wasm_box));
-    }
+    WASM_BOX.with(|cell| cell.replace(Some(Box::new(wasm_box))));
 }
 
 #[no_mangle]
 extern "C" fn wasmbox_send(ptr: *const u8, len: usize) {
-    unsafe {
+    let message: String = unsafe {
         let bytes = std::slice::from_raw_parts(ptr, len).to_vec();
-        let message: String = bincode::deserialize(&bytes).expect("Error deserializing.");
-        WASM_BOX
+        bincode::deserialize(&bytes).expect("Error deserializing.")
+    };
+
+    WASM_BOX.with(|cell| {
+        cell.borrow_mut()
             .as_mut()
             .expect("Received message before initialized.")
-            .message(message);
-    };
+            .message(message)
+    });
 }
 
 #[no_mangle]

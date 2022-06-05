@@ -150,7 +150,7 @@ Each line is treated as a separate message and relayed to the guest module, exce
 
 ## Safety
 
-This module uses unsafe a lot, in particular within the WASM code. The host also uses unsafe when loading a pre-compiled module, which can lead to arbitrary code execution. Pre-compiled modules are safe **only** if you can be sure that they were created by wasmtime/cranelift.
+This module uses `unsafe` a lot, in particular within the WASM code. The host also uses unsafe when loading a pre-compiled module, which can lead to arbitrary code execution. Pre-compiled modules are safe **only** if you can be sure that they were created by wasmtime/cranelift.
 
 ## Limitations
 
