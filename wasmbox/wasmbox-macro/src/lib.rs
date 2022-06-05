@@ -2,7 +2,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
-use syn::{ItemFn, ReturnType, ItemStruct, ItemEnum, ItemType};
+use syn::{ItemEnum, ItemFn, ItemStruct, ItemType, ReturnType};
 
 fn wasmbox_impl(item: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     let func: ItemFn = syn::parse2(item.clone()).expect("#[wasmbox] should annotate a function.");
@@ -75,7 +75,8 @@ fn get_name(item: &proc_macro2::TokenStream) -> Option<Ident> {
 }
 
 fn wasmbox_sync_impl(item: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    let ident: Ident = get_name(&item).expect("Item decorated by #[wasmbox_sync] should be a struct, enum, or type.");
+    let ident: Ident = get_name(&item)
+        .expect("Item decorated by #[wasmbox_sync] should be a struct, enum, or type.");
 
     quote! {
         #item
@@ -93,7 +94,6 @@ fn wasmbox_sync_impl(item: &proc_macro2::TokenStream) -> proc_macro2::TokenStrea
 pub fn wasmbox(_attr: TokenStream, item: TokenStream) -> TokenStream {
     wasmbox_impl(&item.into()).into()
 }
-
 
 #[proc_macro_attribute]
 pub fn wasmbox_sync(_attr: TokenStream, item: TokenStream) -> TokenStream {

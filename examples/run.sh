@@ -2,4 +2,5 @@
 
 set -e
 
-cargo run -p wasmbox-cli -- run $1_example.bin
+cargo run -p wasmbox-cli -- run $1_example.bin --freeze-time
+

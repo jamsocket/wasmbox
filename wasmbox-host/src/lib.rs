@@ -1,18 +1,14 @@
-use ambient_authority::ambient_authority;
 use anyhow::anyhow;
-use cap_std::time::{Duration, Instant, SystemClock, SystemTime};
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha12Rng;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
+use state::{WasmBoxState, WasmBoxStateSnapshot};
 use std::fs::File;
 use std::io::Write;
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicU64, Ordering};
-use wasi_common::{WasiClocks, WasiSystemClock};
 use wasmtime::{Caller, Engine, Extern, Linker, Memory, Module, Store, TypedFunc};
-use wasmtime_wasi::sync::WasiCtxBuilder;
 use wasmtime_wasi::WasiCtx;
+
+mod state;
 
 const ENV: &str = "env";
 const EXT_MEMORY: &str = "memory";
@@ -73,6 +69,7 @@ pub fn prepare_module(input_path: &str, output_path: &str) -> anyhow::Result<()>
 pub struct WasmBoxHost<Input: Serialize, Output: DeserializeOwned> {
     store: Store<WasiCtx>,
     memory: Memory,
+    state: WasmBoxState,
 
     fn_malloc: TypedFunc<u32, u32>,
     fn_free: TypedFunc<(u32, u32), ()>,
@@ -80,42 +77,6 @@ pub struct WasmBoxHost<Input: Serialize, Output: DeserializeOwned> {
 
     _ph_i: PhantomData<Input>,
     _ph_o: PhantomData<Output>,
-}
-
-struct FakeSystemClock {
-    time: AtomicU64,
-}
-
-impl FakeSystemClock {
-    pub fn new() -> Self {
-        FakeSystemClock {
-            time: AtomicU64::new(0),
-        }
-    }
-}
-
-impl WasiSystemClock for FakeSystemClock {
-    fn resolution(&self) -> std::time::Duration {
-        Duration::from_secs(1)
-    }
-
-    fn now(&self, _precision: std::time::Duration) -> SystemTime {
-        let time = self.time.fetch_add(1, Ordering::Relaxed);
-
-        SystemClock::UNIX_EPOCH
-            .checked_add(Duration::from_secs(time))
-            .expect("Error creating time.")
-    }
-}
-
-fn dummy_wasi_clocks() -> WasiClocks {
-    WasiClocks {
-        system: Box::new(FakeSystemClock::new()),
-        monotonic: Box::new(wasmtime_wasi::sync::clocks::MonotonicClock::new(
-            ambient_authority(),
-        )),
-        creation_time: Instant::from_std(std::time::Instant::now()),
-    }
 }
 
 impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
@@ -129,8 +90,8 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         Ok((pt, len))
     }
 
-    fn try_send(&mut self, message: Input) -> anyhow::Result<()> {
-        let (pt, len) = self.put_data(&bincode::serialize(&message)?)?;
+    fn try_send(&mut self, message: &Input) -> anyhow::Result<()> {
+        let (pt, len) = self.put_data(&bincode::serialize(message)?)?;
 
         self.fn_send.call(&mut self.store, (pt, len))?;
 
@@ -165,20 +126,8 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         F: Fn(Output) + 'static + Send + Sync,
         Self: Sized,
     {
-        let mut wasi = WasiCtxBuilder::new()
-            .inherit_stdout()
-            .inherit_stderr()
-            .build();
-
-        // guaranteed to be random. https://xkcd.com/221/
-        let rng = ChaCha12Rng::from_seed([
-            228, 89, 231, 220, 224, 20, 162, 27, 133, 157, 88, 214, 45, 102, 132, 24, 70, 0, 72,
-            252, 102, 134, 132, 205, 244, 168, 130, 198, 122, 100, 17, 29,
-        ]);
-        wasi.random = Box::new(rng);
-
-        let clocks = dummy_wasi_clocks();
-        wasi.clocks = clocks;
+        let state = WasmBoxState::new();
+        let wasi = state.wasi_ctx();
 
         let mut store = Store::new(&engine, wasi);
         let mut linker = Linker::new(&engine);
@@ -214,6 +163,7 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         Ok(WasmBoxHost {
             store,
             memory,
+            state,
             fn_malloc,
             fn_free,
             fn_send,
@@ -222,15 +172,20 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         })
     }
 
-    pub fn message(&mut self, input: Input) {
+    pub fn set_time(&mut self, time: u64) {
+        self.state.set_time(time)
+    }
+
+    pub fn message(&mut self, input: &Input) {
         self.try_send(input).expect("Error sending message.")
     }
 
-    pub fn snapshot_state(&self) -> anyhow::Result<WasmBoxHostState> {
+    pub fn snapshot_state(&self) -> anyhow::Result<Snapshot> {
         let memory = self.memory.data(&self.store);
 
-        Ok(WasmBoxHostState {
+        Ok(Snapshot {
             memory: memory.to_vec(),
+            state: self.state.snapshot(),
         })
     }
 
@@ -241,15 +196,17 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
         Ok(())
     }
 
-    pub fn restore_snapshot(&mut self, snapshot: &WasmBoxHostState) -> anyhow::Result<()> {
+    pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> anyhow::Result<()> {
         let mut p = self.memory.data_mut(&mut self.store);
         p.write_all(&snapshot.memory)?;
+
+        self.state.load_snapshot(&snapshot.state);
 
         Ok(())
     }
 
     pub fn restore_snapshot_from_file(&mut self, filename: &str) -> anyhow::Result<()> {
-        let contents: WasmBoxHostState = bincode::deserialize_from(File::open(filename)?)?;
+        let contents: Snapshot = bincode::deserialize_from(File::open(filename)?)?;
         self.restore_snapshot(&contents)?;
 
         Ok(())
@@ -257,6 +214,7 @@ impl<Input: Serialize, Output: DeserializeOwned> WasmBoxHost<Input, Output> {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct WasmBoxHostState {
+pub struct Snapshot {
     memory: Vec<u8>,
+    state: WasmBoxStateSnapshot,
 }

@@ -1,5 +1,5 @@
-use std::cell::RefCell;
 use crate::{AsyncWasmBox, AsyncWasmBoxBox, WasmBox};
+use std::cell::RefCell;
 
 extern crate alloc;
 
