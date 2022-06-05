@@ -1,6 +1,6 @@
 [package]
 name = "wasmbox-macro"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Macro implementation for wasmbox"
 repository = "https://github.com/drifting-in-space/wasmbox"
