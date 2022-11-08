@@ -75,12 +75,12 @@ use wasmbox_host::WasmBoxHost;
 use anyhow::Result;
 
 fn main() -> Result<()> {
-    let mut mybox = WasmBoxHost::from_wasm_file("path/to/some/module.wasm",
+    let mut mybox: WasmBoxHost<String, String> = WasmBoxHost::from_wasm_file("path/to/some/module.wasm",
         |st: String| println!("guest module says: {}", st))?;
 
     // Send some messages into the box:
-    mybox.message("The guest module will receive this message.");
-    mybox.message("And this one.");
+    mybox.message(&"The guest module will receive this message.".into());
+    mybox.message(&"And this one.".into());
 
     // Turn the state into a serializable object.
     let state = mybox.snapshot_state()?;
@@ -89,7 +89,7 @@ fn main() -> Result<()> {
     mybox.snapshot_to_file("snapshot.bin")?;
 
     // We can interact more with the box:
-    mybox.message("Pretend this message has a side-effect on the box's state.");
+    mybox.message(&"Pretend this message has a side-effect on the box's state.".into());
 
     // And then restore the state, undoing the last side-effect.
     mybox.restore_snapshot(&state)?;
